@@ -40,6 +40,13 @@
       const clearBtn = document.getElementById("clearBtn");
       const copyBtn = document.getElementById("copyResult");
       const resultContainer = document.getElementById("resultContainer");
+      const toggleVisibility = document.getElementById("toggleVisibility");
+      const eyeIcon = document.getElementById("eyeIcon");
+      const exportBtn = document.getElementById("exportBtn");
+      const genExAmb = document.getElementById("genExAmb");
+      const vaultLabel = document.getElementById("vaultLabel");
+      const saveVaultBtn = document.getElementById("saveVaultBtn");
+      const vaultFeed = document.getElementById("vaultFeed");
 
       const criteria = {
         len: document.getElementById("crit-len"),
@@ -140,7 +147,7 @@
 
       function resetUI() {
         strengthBar.style.width = "0%";
-        strengthLabel.innerText = "Waiting...";
+        strengthLabel.innerText = "STANDBY...";
         strengthLabel.style.color = "var(--text-secondary)";
         crackTimeDisplay.innerText = "Crack Time: —";
         Object.values(criteria).forEach((c) => c.classList.remove("active"));
@@ -150,6 +157,13 @@
       inputCheck.addEventListener("input", (e) =>
         analyzeStrength(e.target.value),
       );
+
+      toggleVisibility.addEventListener("click", () => {
+        const isPassword = inputCheck.type === "password";
+        inputCheck.type = isPassword ? "text" : "password";
+        // Always keep the bat logo as showing in the image or toggle slightly
+        eyeIcon.style.opacity = isPassword ? "1" : "0.5";
+      });
 
       /**
        * Cryptographic Generator
@@ -172,18 +186,28 @@
           document.getElementById("genLow").checked ? CHAR_POOLS.low : "",
           document.getElementById("genNum").checked ? CHAR_POOLS.num : "",
           document.getElementById("genSym").checked ? CHAR_POOLS.sym : "",
-        ].filter((p) => p !== "");
+        ];
 
-        if (pools.length === 0) {
-          alert("Security violation: Select at least one character type.");
+        if (genExAmb.checked) {
+          const ambiguous = /[il1Lo0O]/g;
+          pools[0] = pools[0].replace(ambiguous, "");
+          pools[1] = pools[1].replace(ambiguous, "");
+          pools[2] = pools[2].replace(ambiguous, "");
+          // Symbols usually don't have these, but safety first
+        }
+
+        const filteredPools = pools.filter((p) => p !== "");
+
+        if (filteredPools.length === 0) {
+          alert("Security violation: Select at least one character type (after ambiguity filtering).");
           return;
         }
 
         let password = [];
-        const allChars = pools.join("");
+        const allChars = filteredPools.join("");
 
         // Ensure variety: 1 from each selected pool
-        pools.forEach((p) => {
+        filteredPools.forEach((p) => {
           password.push(secureRandomChar(p));
         });
 
@@ -284,8 +308,92 @@
         renderHistory();
       });
 
+      exportBtn.addEventListener("click", () => {
+        const history = JSON.parse(localStorage.getItem("pwgen_history") || "[]");
+        if (history.length === 0) {
+          alert("No session history to export.");
+          return;
+        }
+        const text = history.map(item => `[${item.time}] ${item.pw}`).join('\n');
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SecurePass_History_${new Date().toISOString().slice(0,10)}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
       // Initial render
       renderHistory();
+      renderVault();
+
+      /**
+       * Permanent Vault Logic
+       */
+      function saveToVault() {
+        const password = resultField.innerText;
+        const label = vaultLabel.value.trim();
+
+        if (password === "Click to generate...") {
+          alert("Generate a password first!");
+          return;
+        }
+
+        if (!label) {
+          alert("Please enter a label for this password.");
+          return;
+        }
+
+        const vault = JSON.parse(localStorage.getItem("pwgen_vault") || "[]");
+        vault.unshift({ pw: password, label, time: new Date().toLocaleDateString() });
+        
+        localStorage.setItem("pwgen_vault", JSON.stringify(vault));
+        vaultLabel.value = "";
+        renderVault();
+
+        // Feedback
+        saveVaultBtn.innerText = "SAVED!";
+        setTimeout(() => saveVaultBtn.innerText = "SAVE CURRENT", 1500);
+      }
+
+      function renderVault() {
+        const vault = JSON.parse(localStorage.getItem("pwgen_vault") || "[]");
+        vaultFeed.innerHTML = vault.length ? "" : '<div style="color:#333;text-align:center;padding:40px;font-size:0.8rem">Vault is empty</div>';
+
+        vault.forEach((item, index) => {
+          const div = document.createElement("div");
+          div.className = "history-item";
+          div.innerHTML = `
+            <div class="pw-info">
+              <span class="vault-label-tag">${item.label}</span>
+              <span class="pw-text">${item.pw}</span>
+              <span class="pw-meta">Added ${item.time}</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button class="icon-btn copy-vault"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+              <button class="delete-vault" data-index="${index}">Delete</button>
+            </div>
+          `;
+
+          div.querySelector(".copy-vault").addEventListener("click", () => copyText(item.pw, div.querySelector(".copy-vault")));
+          div.querySelector(".delete-vault").addEventListener("click", () => deleteFromVault(index));
+
+          vaultFeed.appendChild(div);
+        });
+      }
+
+      function deleteFromVault(index) {
+        if (!confirm("Are you sure you want to permanently delete this entry?")) return;
+        const vault = JSON.parse(localStorage.getItem("pwgen_vault") || "[]");
+        vault.splice(index, 1);
+        localStorage.setItem("pwgen_vault", JSON.stringify(vault));
+        renderVault();
+      }
+
+      saveVaultBtn.addEventListener("click", saveToVault);
 
       /**
        * THREE.JS ELECTRIFIED SHIELD LATTICE ENGINE
@@ -472,5 +580,6 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
-      initThree();
+      // Background effects disabled for Batman theme as per reference image
+      // initThree();
 
