@@ -189,7 +189,7 @@
         ];
 
         if (genExAmb.checked) {
-          const ambiguous = /[il1Lo0O]/g;
+          const ambiguous = /[ilI1Lo0O]/g;
           pools[0] = pools[0].replace(ambiguous, "");
           pools[1] = pools[1].replace(ambiguous, "");
           pools[2] = pools[2].replace(ambiguous, "");
@@ -244,6 +244,16 @@
 
       generateBtn.addEventListener("click", generate);
 
+      const toggleResultVisibility = document.getElementById("toggleResultVisibility");
+      const resultEyeIcon = document.getElementById("resultEyeIcon");
+
+      toggleResultVisibility.addEventListener("click", () => {
+        const isHidden = resultField.classList.contains("masked");
+        resultField.classList.toggle("masked");
+        resultEyeIcon.style.opacity = isHidden ? "1" : "0.5";
+      });
+
+
       /**
        * History & Clipboard
        */
@@ -268,7 +278,7 @@
           ? ""
           : '<div style="color:#333;text-align:center;padding:40px;font-size:0.8rem">No encrypted entries in history</div>';
 
-        history.forEach((item) => {
+        history.forEach((item, index) => {
           const div = document.createElement("div");
           div.className = "history-item";
           div.innerHTML = `
@@ -276,16 +286,31 @@
           <span class="pw-text">${item.pw}</span>
           <span class="pw-meta">${item.time} Today</span>
         </div>
-        <button class="icon-btn copy-hist"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="icon-btn copy-hist"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+          <button class="delete-history" data-index="${index}" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.75rem;">Delete</button>
+        </div>
       `;
 
           div.querySelector(".copy-hist").addEventListener("click", () => {
             copyText(item.pw, div.querySelector(".copy-hist"));
           });
 
+          div.querySelector(".delete-history").addEventListener("click", () => {
+             deleteFromHistory(index);
+          });
+
           historyFeed.appendChild(div);
         });
       }
+
+      function deleteFromHistory(index) {
+        const history = JSON.parse(localStorage.getItem("pwgen_history") || "[]");
+        history.splice(index, 1);
+        localStorage.setItem("pwgen_history", JSON.stringify(history));
+        renderHistory();
+      }
+
 
       function copyText(text, btn) {
         navigator.clipboard.writeText(text).then(() => {
@@ -527,32 +552,33 @@
       function updateLightning() {
         lightningGroup.clear();
         
-        // Probability of strike based on strength
-        if (Math.random() > (0.95 - currentStrength * 0.1)) {
-          // Find closest vertex to mouse
-          const positions = lattice.geometry.attributes.position.array;
-          let closest = new THREE.Vector3();
-          let minDist = Infinity;
-          
-          for (let i = 0; i < positions.length; i += 3) {
-            let v = new THREE.Vector3(positions[i], positions[i+1], positions[i+2]);
-            v.applyMatrix4(lattice.matrixWorld);
-            let d = v.distanceTo(mouse);
-            if(d < minDist) { minDist = d; closest = v; }
-          }
+        // Find closest vertex to mouse
+        const positions = lattice.geometry.attributes.position.array;
+        let closest = new THREE.Vector3();
+        let minDist = Infinity;
+        
+        for (let i = 0; i < positions.length; i += 3) {
+          let v = new THREE.Vector3(positions[i], positions[i+1], positions[i+2]);
+          v.applyMatrix4(lattice.matrixWorld);
+          let d = v.distanceTo(mouse);
+          if(d < minDist) { minDist = d; closest = v; }
+        }
 
-          if (minDist < 4) {
-            const segments = generateLightning(closest, mouse, 4);
-            const lineGeom = new THREE.BufferGeometry().setFromPoints(segments.flat());
-            const lineMat = new THREE.LineBasicMaterial({ 
-              color: currentStrength > 0.7 ? 0x4dff88 : 0x00ffff, 
-              transparent: true, 
-              opacity: 0.8 * Math.random(),
-              blending: THREE.AdditiveBlending 
-            });
-            const strike = new THREE.LineSegments(lineGeom, lineMat);
-            lightningGroup.add(strike);
-          }
+        // Probability of strike based on strength OR hover
+        const hoverIntensity = minDist < 6 ? 0.3 : 0;
+        const strikeThreshold = 0.95 - (currentStrength * 0.1) - hoverIntensity;
+
+        if (Math.random() > strikeThreshold && minDist < 6) {
+          const segments = generateLightning(closest, mouse, 4);
+          const lineGeom = new THREE.BufferGeometry().setFromPoints(segments.flat());
+          const lineMat = new THREE.LineBasicMaterial({ 
+            color: currentStrength > 0.7 ? 0x4dff88 : 0x00ffff, 
+            transparent: true, 
+            opacity: 0.8 * Math.random(),
+            blending: THREE.AdditiveBlending 
+          });
+          const strike = new THREE.LineSegments(lineGeom, lineMat);
+          lightningGroup.add(strike);
         }
       }
 
@@ -580,6 +606,5 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
-      // Background effects disabled for Batman theme as per reference image
-      // initThree();
-
+      // Background effects enabled for Batman theme
+      initThree();

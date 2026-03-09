@@ -429,6 +429,14 @@
         color: #fff;
         word-break: break-all;
         letter-spacing: 1px;
+        transition: all 0.3s;
+      }
+
+      .display-field.masked {
+        -webkit-text-security: disc;
+        filter: blur(2px);
+        opacity: 0.5;
+        letter-spacing: 4px;
       }
 
       .icon-btn {
