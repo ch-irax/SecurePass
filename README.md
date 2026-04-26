@@ -16,6 +16,7 @@
 
 ---
 
+Live link :- **https://zsecpass.netlify.app/**
 ## ⚡ Key Modules
 
 ### 🔍 Real-time Entropy Analyzer
