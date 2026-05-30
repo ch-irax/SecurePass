@@ -1,5 +1,10 @@
 # 🛡️ SecurePass — Premium Cryptographic Suite
 
+
+<img src="content.png" 
+               alt="SecurePass"
+               width="460"
+               style="max-width: 460px; width: 100%; border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.75);" />
 <div align="center">
   <img src="logo.png" alt="SecurePass Logo" width="120" />
   <h3><i>The Dark Knight of Password Security</i></h3>
